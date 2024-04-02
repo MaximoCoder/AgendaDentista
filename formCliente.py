@@ -12,7 +12,7 @@ nombres_columnas = control.obtenerNombresColumnas(nombre_tabla)
 #Style attributes for header class
 header_style= {
       "height": 60,
-      "bgcolor": "#081d33",
+      "bgcolor": "#76ABAE",
       "border_radius": ft.border_radius.only(top_left=15, top_right=15),
       "padding": ft.padding.only(left=15, right=15),
 }
@@ -66,7 +66,7 @@ class Header(ft.Container):
         #Create a search box
         self.search = search_bar(self.search_value)
         #Define other class attributes
-        self.name = ft.Text("DentistaBromista", color="white", size=18, weight=700)
+        self.name = ft.Text("MBCMPRUASN", color="white", size=18, weight=700)
         self.logout = ft.IconButton(icon=ft.icons.LOGOUT, icon_color="white", tooltip="Cerrar sesion", on_click=self.logOut, width=40)
         #Compile the attributes
         self.content = ft.Row(
