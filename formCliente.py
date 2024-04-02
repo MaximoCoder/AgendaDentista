@@ -235,6 +235,7 @@ class DataTable(ft.DataTable):
         self.data = control.get_data('clientes')
     #Funcion para eliminar un registro
     def delete_data(self, id_cliente):
+        self.page.dialog.open = False  # Cerramos el modal de eliminar
         control.delete_data('clientes', f"id_cliente = {id_cliente}")
         self.refresh_data()
         # Muestra una SnackBar si la consulta es exitosa
@@ -249,21 +250,23 @@ class DataTable(ft.DataTable):
 
     #Funcion para abrir modal para eliminar un registro
     def close_dlg(self, e):
-        self.dlg_modal.open = False
+        self.page.dialog.open = False
         self.page.update()
+    
     def show_alert_dialog(self, id_cliente):
-        self.dlg_modal = ft.AlertDialog(
+        #MODAL PARA ELIMINAR UN REGISTRO
+        dlg = ft.AlertDialog(
             title=ft.Text("¿Estas seguro de eliminar este registro?"),
-            #content=ft.Text("No podras recuperarlo"),
+            content=ft.Text("No podras recuperarlo"),
             actions=[
                 ft.TextButton("Si, Estoy seguro", on_click=lambda e: self.delete_data(id_cliente)),
                 ft.TextButton("Cancelar", on_click=self.close_dlg),
             ],
             actions_alignment=ft.MainAxisAlignment.END,
         )
-        self.page.dialog = self.dlg_modal
-        self.dlg_modal.open = True
-        #self.page.update()
+        self.page.dialog = dlg
+        dlg.open = True
+        self.page.update()
     
     #Funcion para editar un registro
     def update_data(self, id_cliente, row1_value, row2_value, row3_value):
