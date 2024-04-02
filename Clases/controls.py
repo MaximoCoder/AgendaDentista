@@ -1,0 +1,103 @@
+#CONTROLES QUE HACEN CONSULTAS A LA DB
+import flet as ft
+#CONEXION A DB
+from .conexionDB import *
+class Controls:
+    def obtenerNombresColumnas(self, nombre_tabla):
+            connect = conexion.conexionDB() 
+            if connect.is_connected():
+                cursor = connect.cursor()
+                cursor.execute(f"SELECT * FROM {nombre_tabla}")
+                nombres_columnas = [columna[0].upper() for columna in cursor.description]
+                return nombres_columnas
+            else:
+                return None
+    
+    #Envio de datos
+    def submit_data(self, e:ft.TapEvent, row_values):
+        try:
+            connect = conexion.conexionDB() 
+            if connect.is_connected():
+                cursor = connect.cursor()
+                # Verificar si el registro ya existe
+                sql_check = "SELECT * FROM clientes WHERE nombre_cliente = %s AND tel_cliente = %s AND email_cliente = %s"
+                cursor.execute(sql_check, row_values)
+                if cursor.fetchone() is not None:
+                    print("El registro ya existe.")
+                    return False  # Devolver False si el registro ya existe
+                else:
+                    # Preparar la consulta SQL para insertar el registro
+                    sql_insert = "INSERT INTO clientes (nombre_cliente, email_cliente, tel_cliente, fecha_registro) VALUES (%s, %s, %s, now())"
+                    cursor.execute(sql_insert, row_values)
+                    if cursor.rowcount > 0:
+                        connect.commit()  # Confirmar la transacción
+                        print(cursor.rowcount, "record inserted.")
+                        return True  # Devolver True si los datos se insertaron correctamente
+        except mysql.connector.Error as e:
+            print("No se pudo conectar", e)
+        finally:
+            if connect.is_connected():
+                cursor.close()
+                connect.close()
+                print("MySQL connection is closed")
+        return False  # Devolver False si los datos no se insertaron
+    
+    #TRAER LOS DATOS DE LA DB
+    def get_data(self, nombre_tabla):
+        try:
+            connect = conexion.conexionDB()
+            if connect.is_connected():
+                with connect.cursor() as cursor: 
+                    cursor.execute(f"SELECT * FROM {nombre_tabla}")
+                    result = cursor.fetchall()
+                
+                    #Convertir los datos en un diccionario
+                    columns = [column[0] for column in cursor.description]
+                    rows = [dict(zip(columns, row)) for row in result]
+                    #print(rows)
+                    return rows
+            else:
+                return None
+        except mysql.connector.Error as e:
+            print("No se pudo conectar", e)
+        finally:
+            if connect.is_connected():
+                connect.close()
+                #print("MySQL connection is closed")
+    #Eliminar registros de la DB
+    def delete_data(self, nombre_tabla, condition):
+        try:
+            connect = conexion.conexionDB()
+            if connect.is_connected():
+                with connect.cursor() as cursor: 
+                    # Ejecuta la sentencia SQL DELETE
+                    cursor.execute(f"DELETE FROM {nombre_tabla} WHERE {condition}")
+                    # Confirma los cambios
+                    connect.commit()
+                    print(cursor.rowcount, "registro(s) eliminado(s)")
+            else:
+                print("No se pudo conectar a la base de datos")
+        except mysql.connector.Error as e:
+            print("Ocurrió un error al eliminar el registro:", e)
+        finally:
+            if connect.is_connected():
+                connect.close()
+                print("Conexión a MySQL cerrada")
+    #Funcion para editar registros
+    def update_data(self, nombre_tabla, row_values, condition):
+        try:
+            connect = conexion.conexionDB()
+            if connect.is_connected():
+                with connect.cursor() as cursor:
+                    cursor.execute(f"UPDATE {nombre_tabla} SET nombre_cliente = %s, email_cliente = %s, tel_cliente = %s WHERE {condition}", row_values)
+                    connect.commit()
+                    print(cursor.rowcount, "record(s) affected")
+                    return True  # Retorna True si la actualización fue exitosa
+            else:
+                print("No se pudo conectar a la base de datos")
+        except mysql.connector.Error as e:
+            print("Ocurrio un error al actualizar el registro:", e)
+        finally:
+            if connect.is_connected():
+                connect.close()
+                print("Conexión a MySQL cerrada")
