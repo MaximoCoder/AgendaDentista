@@ -225,9 +225,10 @@ data_table_style = {
     "horizontal_lines": ft.border.BorderSide(1, "#ebebeb"),
     "columns": [
         #Traer los datos de la base de datos(los titulos de las columnas)
-        ft.DataColumn(ft.Text(index, size=13, color="black", weight="bold"))
-        for index in [nombres_columnas[i] for i in [1,2,3] ] #MUESTRA SOLO 4 COLUMNAS NOMBRE, TELEFONO, CORREO Y ACCIONES
-    ] + [ft.DataColumn(ft.Text("ACCIONES", size=13, color="black", weight="bold"))] #Columna Acciones
+        ft.DataColumn(ft.Text("#", size=16, color="black", weight="bold")),
+        *(ft.DataColumn(ft.Text(index, size=13, color="black", weight="bold")) for index in [nombres_columnas[i] for i in [1,2,3]]), #MUESTRA LAS COLUMNAS DE LA DB
+        ft.DataColumn(ft.Text("ACCIONES", size=13, color="black", weight="bold")) #Columna Acciones
+    ]
 }
 class DataTable(ft.DataTable):
     def __init__(self):
@@ -253,7 +254,10 @@ class DataTable(ft.DataTable):
         self.page.dialog.open = False
         self.page.update()
     
-    def show_alert_dialog(self, id_cliente):
+    def show_delete_dialog(self, e):
+        #Imprimir el id del cliente seleccionado
+        print("El id del cliente es = ",e.control.data['id_cliente'])
+        id_cliente = e.control.data['id_cliente']
         #MODAL PARA ELIMINAR UN REGISTRO
         dlg = ft.AlertDialog(
             title=ft.Text("¿Estas seguro de eliminar este registro?"),
@@ -269,8 +273,9 @@ class DataTable(ft.DataTable):
         self.page.update()
     
     #Funcion para editar un registro
-    def update_data(self, id_cliente, row1_value, row2_value, row3_value):
-       condition = f"id_cliente = {id_cliente}"
+    def update_data(self,e):
+       print("Hola EDIT")
+       """condition = f"id_cliente = {id_cliente}"
        #Muestra mensaje de exito o fallo
        if(control.update_data('clientes', (row1_value, row2_value, row3_value), condition)):
             self.refresh_data()
@@ -292,21 +297,21 @@ class DataTable(ft.DataTable):
                 action_color="white",
                 duration=3000)
             self.page.snack_bar.open = True
-            self.page.update()
+            self.page.update()"""
            
     def add_data_to_table(self):
         self.rows = []
         for row in self.data:
-            id_cliente = row['id_cliente']
             data_row = ft.DataRow(
                 cells=[
+                    ft.DataCell(ft.Text(row['id_cliente'], size=13, color="black")),
                     ft.DataCell(ft.Text(row['nombre_cliente'], size=13, color="black")),
                     ft.DataCell(ft.Text(row['tel_cliente'], size=13, color="black")),
                     ft.DataCell(ft.Text(row['email_cliente'], size=13, color="black")),
                     ft.DataCell(ft.Row([
-                        ft.IconButton("edit_calendar_rounded", icon_color="black", tooltip="Agendar"),
-                        ft.IconButton("edit", icon_color="blue", tooltip="Editar", on_click=lambda e: self.update_data(id_cliente)),
-                        ft.IconButton("delete", icon_color="red", tooltip="Eliminar", on_click=lambda e: self.show_alert_dialog(id_cliente)),  # Añade un manejador de eventos de clic),
+                        ft.IconButton("edit_calendar_rounded", data=row, icon_color="black", tooltip="Agendar"),
+                        ft.IconButton("edit", data=row, icon_color="blue", tooltip="Editar", on_click=lambda e: self.update_data(e)),
+                        ft.IconButton("delete",data=row, icon_color="red", tooltip="Eliminar", on_click=self.show_delete_dialog),  # Añade un manejador de eventos de clic),
                     ])),
                 ]
             ) 
