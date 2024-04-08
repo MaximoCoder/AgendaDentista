@@ -1,8 +1,11 @@
 #CONEXION A DB
 import flet as ft
+import datetime
 from flet import Page, Column,Tab, Tabs
 from flet_route import Params, Basket
 from Clases.controls import *
+#CLASE DE DATE PICKER
+from Clases.yourdate import Yourdate
 #INSTANCIA PARA UTILIZAR LOS CONTROLES
 control = Controls()
 # Nombre de la tabla
@@ -89,14 +92,14 @@ class Header(ft.Container):
         self.search.update()
     #Define a placeholder method for filter data
     def filter_data(self, e):
+        search_value = str(e.control.value).lower()  # Convertir e.control.value a cadena
         for data_rows in self.dt.rows:
-            data_cell = data_rows.cells[0]
+            data_cell = data_rows.cells[1]
             data_rows.visible = (
-                True
-                if e.control.value.lower() in data_cell.content.value.lower()
-                else False
+                True if search_value in str(data_cell.content.value).lower() else False
             )
             data_rows.update()
+
 #Define form class styling and attributes
 form_style = {
     "border_radius": 8,
@@ -204,7 +207,7 @@ class formClient(ft.Container):
                 self.page.snack_bar.open = True
                 self.page.update()
         else:
-            dlg = ft.AlertDialog(title=ft.Text("Por favor llena todos los campos", color="white"))
+            dlg = ft.AlertDialog(title=ft.Text("Por favor llena todos los campos", color="black"))
             self.page.dialog = dlg
             dlg.open = True
             self.page.update()
@@ -329,6 +332,51 @@ class DataTable(ft.DataTable):
         self.page.dialog = dlg
         dlg.open = True
         self.page.update()
+
+    #Funcion para agendar cita
+        
+    #Modal de cita    
+    def show_schedule_dialog(self, e):
+        self.page.go("/agenda")
+        """ #Create the inputs
+            name = ft.Text(size=18, weight="bold", width=300) #Nombre del cliente que agendara, no se puede modificar
+            tipo_Cita = ft.TextField(label="Procedimiento a realizar", autofocus=True, width=350)
+            date_button = (Yourdate(self.page))
+            #TIME PICKER
+            
+            time_button = ft.TextField(
+                label="seleccionar hora",
+                icon=ft.icons.ACCESS_TIME,
+            )
+            #Create the dialog
+            dlg = ft.AlertDialog(
+                title=ft.Text("Agendar Cita"),
+                content=Column([
+                    name,
+                    tipo_Cita,
+                    date_button,
+                    
+        
+                ]),
+                actions=[
+                    ft.TextButton("Agendar", on_click=self.close_dlg),
+                    ft.TextButton("Cancelar", on_click=self.close_dlg), #Reutilizamos la funcion para cerrar modales.
+                ],
+                actions_alignment=ft.MainAxisAlignment.END,
+            )
+            #Traer los datos de esa row.
+            id_cliente = e.control.data['id_cliente']
+            name.value = e.control.data['nombre_cliente']
+            email_cliente = e.control.data['email_cliente']
+            #tipo_Cita.value = e.control.data['procedimiento']
+            #date_button.value = e.control.data['fecha']
+            #time_button.value = e.control.data['hora']
+
+            #Abrir el modal
+            self.page.dialog = dlg
+            dlg.open = True
+            self.page.update()"""
+
     def add_data_to_table(self):
         self.rows = []
         for row in self.data:
@@ -339,7 +387,7 @@ class DataTable(ft.DataTable):
                     ft.DataCell(ft.Text(row['tel_cliente'], size=13, color="black")),
                     ft.DataCell(ft.Text(row['email_cliente'], size=13, color="black")),
                     ft.DataCell(ft.Row([
-                        ft.IconButton("edit_calendar_rounded", data=row, icon_color="black", tooltip="Agendar"),
+                        ft.IconButton("edit_calendar_rounded", data=row, icon_color="black", tooltip="Agendar", on_click=self.show_schedule_dialog),
                         ft.IconButton("edit", data=row, icon_color="blue", tooltip="Editar", on_click=self.show_update_dialog),
                         ft.IconButton("delete",data=row, icon_color="red", tooltip="Eliminar", on_click=self.show_delete_dialog),  # Añade un manejador de eventos de clic),
                     ])),

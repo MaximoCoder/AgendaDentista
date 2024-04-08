@@ -35,7 +35,7 @@ class UserLogin(Column):
             user = username_field.value
             passw = password_field.value
             if user == "" or passw == "":
-                dlg = ft.AlertDialog(title=ft.Text("Porfavor llena todos los campos", color="white"))
+                dlg = ft.AlertDialog(title=ft.Text("Porfavor llena todos los campos", color="black"))
                 page.dialog = dlg
                 dlg.open = True
                 page.update()
@@ -43,7 +43,7 @@ class UserLogin(Column):
                 #Redireccionar
                 page.go("/formCliente")
             else:
-                dlg = ft.AlertDialog(title=ft.Text("Credenciales incorrectas", color="white"))
+                dlg = ft.AlertDialog(title=ft.Text("Credenciales incorrectas", color="black"))
                 page.dialog = dlg
                 dlg.open = True
                 page.update()
