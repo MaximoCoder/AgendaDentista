@@ -101,3 +101,45 @@ class Controls:
             if connect.is_connected():
                 connect.close()
                 print("Conexión a MySQL cerrada")
+    def check_disponibilidad(self, check_values):
+        try: 
+            connect = conexion.conexionDB()
+            if connect.is_connected():
+                cursor = connect.cursor(buffered=True)
+                with connect.cursor() as cursor:
+                    cursor.execute(f"SELECT * FROM citas WHERE fecha = %s AND hora = %s", check_values)
+                    result = cursor.fetchall()  # Fetch all rows
+                    if result:
+                        return False  # Retorna False si la cita ya existe
+                    else:
+                        return True  # Retorna True si la cita no existe
+        except mysql.connector.Error as e:
+            print("No se pudo conectar", e)
+        finally:
+            if connect.is_connected():
+                cursor.close()
+                connect.close()
+                print("MySQL connection is closed")
+    def agendar_cita(self , row_values):
+        try: 
+            #Insertamos los datos luego de verificar que la fecha y hora no esten ocupadas
+            connect = conexion.conexionDB()
+            if connect.is_connected():
+                cursor = connect.cursor(buffered=True)
+                #EL HORARIO ESTA DISPONIBLE ENTONCES SE INSERTAN LOS DATOS
+                sql_insert = "INSERT INTO citas (id_cliente, email_cliente, tipo_cita ,fecha, hora) VALUES (%s, %s, %s, %s, %s)"
+                cursor.execute(sql_insert, row_values)
+                if cursor.rowcount > 0:
+                    connect.commit()  # Confirmar la transacción
+                    print(cursor.rowcount, "record(s) affected, cita agendada.")
+                    return True  # Retorna True si se guardaron los datos
+        except mysql.connector.Error as e:
+            print("Ocurrio un error al agendar una cita:", e)
+        finally:
+            if connect.is_connected():
+                cursor.close()
+                connect.close()
+                print("Conexión a MySQL cerrada")
+
+
+    

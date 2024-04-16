@@ -4,8 +4,7 @@ import datetime
 from flet import Page, Column,Tab, Tabs
 from flet_route import Params, Basket
 from Clases.controls import *
-#CLASE DE DATE PICKER
-from Clases.yourdate import Yourdate
+
 #INSTANCIA PARA UTILIZAR LOS CONTROLES
 control = Controls()
 # Nombre de la tabla
@@ -316,7 +315,10 @@ class DataTable(ft.DataTable):
                 edit_Name,
                 edit_Email,
                 edit_Tel
-			]),
+			],
+                height=300,
+                width=300
+            ),
             actions=[
                 ft.TextButton("Actualizar", on_click=lambda e: self.update_data(id_cliente, edit_Name.value, edit_Email.value, edit_Tel.value)),
                 ft.TextButton("Cancelar", on_click=self.close_dlg), #Reutilizamos la funcion para cerrar modales.
@@ -334,48 +336,172 @@ class DataTable(ft.DataTable):
         self.page.update()
 
     #Funcion para agendar cita
+    def schedule_date(self, id_cliente, email_cliente, procedimiento_field, fechaText, horaPicker ):
+        self.page.dialog.open = False  # Cerramos el modal de editar
+        #Primero mandamos solo los datos de fecha y hora para verificar que no esta encimando un horario ocupado
+        check_values = (fechaText, horaPicker)
+        if control.check_disponibilidad(check_values):
+            # Si la fecha y hora están disponibles, mandamos el resto de los datos
+            row_values = (id_cliente, email_cliente, procedimiento_field, fechaText, horaPicker)
+            if control.agendar_cita(row_values):
+                #print("Cita agendada con éxito.")
+                # Muestra una SnackBar si la consulta es exitosa
+                self.page.snack_bar = ft.SnackBar(
+                    content=ft.Text("¡Se agendo correctamente la cita!", color="white", weight="bold"),
+                    action="Okey!",
+                    bgcolor="green",
+                    action_color="white",
+                    duration=3000)
+                self.page.snack_bar.open = True
+                self.page.update()
+            else:
+                #print("No se pudo agendar la cita.")
+                # Muestra una SnackBar si la consulta fallo
+                self.page.snack_bar = ft.SnackBar(
+                    content=ft.Text("¡Lo sentimos algo salio mal, vuelve a intentarlo!", color="white", weight="bold"),
+                    action="Okey!",
+                    bgcolor="red",
+                    action_color="white",
+                    duration=3000)
+                self.page.snack_bar.open = True
+                self.page.update()
+        else:
+            #print("La fecha y hora ya están ocupadas.")
+            # Muestra una SnackBar si la consulta fallo
+            self.page.snack_bar = ft.SnackBar(
+                content=ft.Text("¡El horario que seleccionaste ya esta ocupado, por favor selecciona otra hora.!", color="white", weight="bold"),
+                action="Okey!",
+                bgcolor="red",
+                action_color="white",
+                duration=3000)
+            self.page.snack_bar.open = True
+            self.page.update()
+
         
     #Modal de cita    
     def show_schedule_dialog(self, e):
-        self.page.go("/agenda")
-        """ #Create the inputs
-            name = ft.Text(size=18, weight="bold", width=300) #Nombre del cliente que agendara, no se puede modificar
-            tipo_Cita = ft.TextField(label="Procedimiento a realizar", autofocus=True, width=350)
-            date_button = (Yourdate(self.page))
-            #TIME PICKER
-            
-            time_button = ft.TextField(
-                label="seleccionar hora",
-                icon=ft.icons.ACCESS_TIME,
-            )
-            #Create the dialog
-            dlg = ft.AlertDialog(
-                title=ft.Text("Agendar Cita"),
-                content=Column([
-                    name,
-                    tipo_Cita,
-                    date_button,
-                    
-        
-                ]),
-                actions=[
-                    ft.TextButton("Agendar", on_click=self.close_dlg),
-                    ft.TextButton("Cancelar", on_click=self.close_dlg), #Reutilizamos la funcion para cerrar modales.
-                ],
-                actions_alignment=ft.MainAxisAlignment.END,
-            )
-            #Traer los datos de esa row.
-            id_cliente = e.control.data['id_cliente']
-            name.value = e.control.data['nombre_cliente']
-            email_cliente = e.control.data['email_cliente']
-            #tipo_Cita.value = e.control.data['procedimiento']
-            #date_button.value = e.control.data['fecha']
-            #time_button.value = e.control.data['hora']
+        #self.page.go("/agenda")
+        #Traer los datos de esa row.
+        id_cliente = e.control.data['id_cliente']
+        email_cliente = e.control.data['email_cliente']
+        #Create the inputs
+            # Cuerpo del formulario
+        procedimiento_field = ft.TextField(label="Procedimiento a realizar:",width=300, height=100, color="black")
+        procedimiento = ft.Container(
+            content=procedimiento_field,
+            alignment=ft.alignment.center
+        )
 
-            #Abrir el modal
-            self.page.dialog = dlg
-            dlg.open = True
-            self.page.update()"""
+        #DATEPICKER
+
+        # Calculate the current date
+        current_date = datetime.datetime.now()
+
+        # Calculate the last date as the current date plus 3 months
+        last_date = current_date + datetime.timedelta(days=90)
+        #TEXTO PARA MOSTRAR LA FECHA QUE SELECCIONA EL USUARIO
+        fechaText = ft.Text(weight=ft.FontWeight.BOLD, size=20, color="black")  
+
+        def change_date(e):
+            fechaText.value = f"{fechaPicker.value.date()}"
+            e.control.page.update()
+
+        fechaPicker = ft.DatePicker(
+            first_date=current_date,
+            last_date=last_date,
+            on_change=change_date,
+        )
+        self.page.overlay.append(fechaPicker)
+
+        fecha_button = ft.ElevatedButton(
+            "Selecciona la fecha:",
+            icon=ft.icons.CALENDAR_MONTH,
+            on_click=lambda _: fechaPicker.pick_date(),
+            style=ft.ButtonStyle(
+                shape=ft.RoundedRectangleBorder(radius=10),
+            ),
+            height=50,
+            width=200
+        )
+
+        stackFecha = ft.Stack(
+            [   
+                ft.Row(
+                    [fecha_button, fechaText],
+                    alignment=ft.MainAxisAlignment.CENTER,
+                )
+            ])
+
+        fecha = ft.Container(
+            content=stackFecha,
+            alignment=ft.alignment.center,
+        )
+        #TIME PICKER
+        timeText = ft.Text(weight=ft.FontWeight.BOLD, size=20, color="black")  
+        def change_time(e):
+            timeText.value = f"{horaPicker.value}"
+            e.control.page.update()
+
+        horaPicker = ft.TimePicker(
+            confirm_text="Confirmar",
+            error_invalid_text="El tiempo esta fuera de rango",
+            help_text="Seleciona un tiempo",
+            on_change=change_time,
+        )
+        self.page.overlay.append(horaPicker)
+        time_button = ft.ElevatedButton(
+            "Selecciona la hora:",
+            icon=ft.icons.ACCESS_TIME_FILLED,
+            on_click=lambda _: horaPicker.pick_time(),
+            style=ft.ButtonStyle(
+                shape=ft.RoundedRectangleBorder(radius=10),
+            ),
+            height=50,
+            width=200
+        )
+
+        
+        stackTime = ft.Stack(
+            [   
+                ft.Row(
+                    [time_button, timeText],
+                    alignment=ft.MainAxisAlignment.CENTER,
+                )
+            ])
+        
+        hora = ft.Container(
+            content=stackTime,
+            alignment=ft.alignment.center
+        )
+        #TIME PICKER
+        
+        time_button = ft.TextField(
+            label="seleccionar hora",
+            icon=ft.icons.ACCESS_TIME,
+        )
+        #Create the dialog
+        dlg = ft.AlertDialog(
+            title=ft.Text("Agendar Cita"),
+            content=Column([
+                procedimiento,
+                fecha,
+                hora,
+                
+            ],
+            height=300,
+            width=300
+            ),
+            actions=[
+                ft.TextButton("Agendar", on_click=lambda e:self.schedule_date(id_cliente, email_cliente, procedimiento_field.value, fechaText.value, horaPicker.value)),
+                ft.TextButton("Cancelar", on_click=self.close_dlg), #Reutilizamos la funcion para cerrar modales.
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+        
+        #Abrir el modal
+        self.page.dialog = dlg
+        dlg.open = True
+        self.page.update()
 
     def add_data_to_table(self):
         self.rows = []
