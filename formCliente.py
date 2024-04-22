@@ -1,9 +1,12 @@
 #CONEXION A DB
 import flet as ft
-import datetime
 from flet import Page, Column,Tab, Tabs
 from flet_route import Params, Basket
 from Clases.controls import *
+#Calendario
+import calendar
+from datetime import datetime, timedelta, date
+
 
 #INSTANCIA PARA UTILIZAR LOS CONTROLES
 control = Controls()
@@ -395,10 +398,10 @@ class DataTable(ft.DataTable):
         #DATEPICKER
 
         # Calculate the current date
-        current_date = datetime.datetime.now()
+        current_date = datetime.now()
 
         # Calculate the last date as the current date plus 3 months
-        last_date = current_date + datetime.timedelta(days=90)
+        last_date = current_date + timedelta(days=90)
         #TEXTO PARA MOSTRAR LA FECHA QUE SELECCIONA EL USUARIO
         fechaText = ft.Text(weight=ft.FontWeight.BOLD, size=20, color="black")  
 
@@ -526,11 +529,284 @@ class DataTable(ft.DataTable):
     def refresh_data(self):
         self.data = control.get_data('clientes')
         self.add_data_to_table()
+#Clases del calendario
+cal = calendar.Calendar()
+ # pre-defined calendar maps ...
+date_class: dict[int, str] = {
+    0: "Lu",
+    1: "Ma",
+    2: "Mi",
+    3: "Ju",
+    4: "Vi",
+    5: "Sa",
+    6: "Do",
+}
+
+month_class: dict[int, str] = {
+    1: "Enero",
+    2: "Febrero",
+    3: "Marzo",
+    4: "Abril",
+    5: "Mayo",
+    6: "Junio",
+    7: "Julio",
+    8: "Agosto",
+    9: "Septiembre",
+    10: "Octubre",
+    11: "Noviembre",
+    12: "Diciembre",
+}
+
+# Date class to handle calendar logic ...
+class Settings:
+    # in this class we'll use datetime module to handle dates
+    year: int = datetime.now().year
+    month: int = datetime.now().month
+
+    # static method to return the !year
+    @staticmethod
+    def get_year():
+        return Settings.year
+
+    # static method to return the !month
+    @staticmethod
+    def get_month():
+        return Settings.month
+
+    # static method to calculate month changes (user event)
+    @staticmethod
+    def get_date(delta: int):
+        # the following logic handles changes in the month
+        # if user triggers back, we check the limit of 1 to see ifi t's been passed and handle it accordingly. Same goes ith next trigger...
+        if delta == 1:
+            if Settings.month + delta > 12:
+                Settings.month = 1
+                Settings.year += 1
+            else:
+                Settings.month += 1
+
+        if delta == -1:
+            if Settings.month + delta < 1:
+                Settings.month = 12
+                Settings.year -= 1
+            else:
+                Settings.month -= 1
+
+
+# Custom Container class to display days ...
+date_box_style = {
+    "width": 30,
+    "height": 30,
+    "alignment": ft.alignment.center,
+    "shape": ft.BoxShape("rectangle"),
+    "animate": ft.Animation(400, "ease"),
+    "border_radius": 5,
+}
+
+
+class DateBox(ft.Container):
+    def __init__(
+        self,
+        day: int,
+        date: str = None,
+        date_instnace: ft.Column = None,
+        task_instance: ft.Column = None,
+        opacity_: float | int = None,
+    ):
+        super(DateBox, self).__init__(
+            **date_box_style,
+            data=date,
+            opacity=opacity_,
+            # add a on_click trigger to select days
+            on_click=self.selected,
+        )
+
+        self.day = day
+        self.date_instance = date_instnace
+        self.task_instance = task_instance
+
+        self.content = ft.Text(self.day, text_align="center")
+
+    def selected(self, e: ft.TapEvent):
+        # becuase each BoxDay has the !grid instance, we can loop over the rows and check to see which day is being clicked and update the UI...
+        if self.date_instance:  # to bypass any errors
+            # [1:] becuase we skip over the weekday row
+            for row in self.date_instance.controls[1:]:
+                for date in row.controls:
+                    date.bgcolor = "#76ABAE" if date == e.control else None
+                    date.border = (
+                        ft.border.all(0.5, "#76ABAE") if date == e.control else None
+                    )
+                    # we can add one more line of code to display the clicked date into the text field
+
+                    if date == e.control:
+                        # recall that we passed in a formatted date, under the method called !format_date
+                        self.task_instance.date.value = e.control.data
+
+            self.date_instance.update()
+            self.task_instance.update()
+
+
+# Calendar class that sets up UI for year/month/day...
+class DateGrid(ft.Column):
+    # data grid takes in !year and !month as well as the task manager instance
+    def __init__(self, year: int, month: int):
+        super(DateGrid, self).__init__()
+
+        self.year = year
+        self.month = month
+        #self.task_manager = task_instance
+
+        self.date = ft.Text(f"{month_class[self.month]} {self.year}")
+
+        self.year_and_month = ft.Container(
+            bgcolor="#76ABAE",
+            border_radius=ft.border_radius.only(top_left=10, top_right=10),
+            content=ft.Row(
+                alignment="center",
+                controls=[
+                    ft.IconButton(
+                        "chevron_left",
+                        on_click=lambda e: self.update_date_grid(e, -1),
+                    ),
+                    ft.Container(
+                        width=150, content=self.date, alignment=ft.alignment.center
+                    ),
+                    ft.IconButton(
+                        "chevron_right",
+                        on_click=lambda e: self.update_date_grid(e, 1),
+                    ),
+                ],
+            ),
+        )
+
+        self.controls.insert(1, self.year_and_month)
+
+        week_days = ft.Row(
+            alignment="spaceEvenly",
+            controls=[
+                DateBox(day=date_class[index], opacity_=0.7) for index in range(7)
+            ],
+        )
+
+        self.controls.insert(1, week_days)
+        self.populate_date_grid(self.year, self.month)
+
+    # this method adds the days of each week accordingly...
+    def populate_date_grid(self, year: int, month: int):
+        # delete all controls after the list of days of the week row
+        del self.controls[2:]
+
+        # Obtén el día actual y las citas
+        today = datetime.now().day
+        citas = control.get_citas()
+
+        for week in cal.monthdayscalendar(year, month):
+            row = ft.Row(alignment="spaceEvenly")
+            for day in week:
+                if day != 0:
+                    date_box = DateBox(day, self.format_date(day), self)
+
+                    # Si el día es hoy, cambia el color de fondo y el borde
+                    if day == today and month == datetime.now().month and year == datetime.now().year:
+                        date_box.bgcolor = "#76ABAE"
+                        date_box.border = ft.border.all(0.5, "#76ABAE")
+
+                    #Si el día tiene una cita, cambia el color de fondo y el borde
+                    for cita in citas:
+                        cita_date = cita['fecha']  # Asegúrate de que cita['fecha'] es un objeto datetime.date
+                        if date(year, month, day) == cita_date:
+                            date_box.bgcolor = "#97FEED"
+                            date_box.border = ft.border.all(0.5, "#97FEED")
+
+                    row.controls.append(date_box)
+                else:
+                    row.controls.append(DateBox(" "))
+
+            self.controls.append(row)
+
+    # We need a method to update the UI when user triggers back or next for !month
+    def update_date_grid(self, e: ft.TapEvent, delta: int):
+        # we need to pass delta (either 1 or -1) to settings and get current year and month changes...
+        # The logic is set up, we can trigger the method first ...
+        Settings.get_date(delta)  # make sure to pass in delta...
+
+        self.update_year_and_month(
+            Settings.get_year(),
+            Settings.get_month(),
+        )
+
+        self.populate_date_grid(
+            Settings.get_year(),
+            Settings.get_month(),
+        )
+
+        self.page.update()
+
+    # Another helper method to insert the changes post-event trigger
+    def update_year_and_month(self, year: int, month: int):
+        self.year = year
+        self.month = month
+        self.date.value = f"{month_class[self.month]} {self.year}"
+
+    # A helper method to format and return the day...
+    def format_date(self, day: int):
+        return f"{month_class[self.month]} {day}, {self.year}"
+
+
+# some stylign for the inputs we will use ...
+def input_style(height: int):
+    return {
+        "height": height,
+        "focused_border_color": "blue",
+        "border_radius": 5,
+        "cursor_height": 16,
+        "cursor_color": "white",
+        "content_padding": 10,
+        "border_width": 1.5,
+        "text_size": 12,
+    }
+
+
+# Task manager class to handle tasks (if app is a to-do app)
+class TaskManager(ft.Column):
+    def __init__(self):
+        super(TaskManager, self).__init__()
+
+        self.date = ft.TextField(
+            label="Date", read_only=True, value=" ", **input_style(38)
+        )
+
+        self.controls = [self.date]
+#Apartado de agenda
+class Agenda(Column):
+    def __init__(self):
+        super().__init__()
+       
+        self.date_grid = DateGrid(
+            year=Settings.get_year(), month=Settings.get_month()
+        )
+        # Crear el título
+        title = ft.Text("Aqui puedes observar las citas pendientes, Haz click sobre un dia marcado para ver las citas de ese dia.", size=16, text_align="center")
+        #self.controls.append(title)
+        
+        # Crear los rectángulos a la izquierda
+        rectangles = ft.Column()
+        for _ in range(5):  # Cambia esto por el número de rectángulos que quieras
+            rectangles.controls.append(ft.Container(width=200, height=300, bgcolor="lightgrey"))
+        
+        # Crear la fila con los rectángulos y el calendario
+        row = ft.Row(controls=[self.date_grid], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
+        content = ft.Column(controls=[title, row])
+        self.controls.append(content)
+    
+
 
 class formularioClientes(Column):
     def __init__(self):
         super().__init__()
         # Define las pestañas
+        agenda = Agenda()
         self.table = DataTable()  
         self.tabs = Tabs(
             selected_index=0,
@@ -554,7 +830,7 @@ class formularioClientes(Column):
                         scroll="auto",
                         expand=True,
                         controls=[
-                            ft.Text("Agenda", size=20, color="black")
+                            ft.Row(controls=[agenda]),
                         ],
                     ),        
                 ), 

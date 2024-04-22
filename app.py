@@ -11,7 +11,8 @@ def main(page: ft.Page):
     #Tema
     page.theme_mode = ft.ThemeMode.LIGHT
     #Tamaño de la ventana
-    page.window_width = 800
+    page.window_width = 900
+    page.window_height = 800
     app_routes = [
         path(url="/", clear=True, view=login.build),
         path(url="/formCliente", clear=True, view=formCliente.build),

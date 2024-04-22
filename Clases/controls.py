@@ -39,7 +39,7 @@ class Controls:
             if connect.is_connected():
                 cursor.close()
                 connect.close()
-                print("MySQL connection is closed")
+                #print("MySQL connection is closed")
         return False  # Devolver False si los datos no se insertaron
     
     #TRAER LOS DATOS DE LA DB
@@ -74,7 +74,7 @@ class Controls:
                     cursor.execute(f"DELETE FROM {nombre_tabla} WHERE {condition}")
                     # Confirma los cambios
                     connect.commit()
-                    print(cursor.rowcount, "registro(s) eliminado(s)")
+                    #print(cursor.rowcount, "registro(s) eliminado(s)")
             else:
                 print("No se pudo conectar a la base de datos")
         except mysql.connector.Error as e:
@@ -82,7 +82,7 @@ class Controls:
         finally:
             if connect.is_connected():
                 connect.close()
-                print("Conexión a MySQL cerrada")
+                #print("Conexión a MySQL cerrada")
     #Funcion para editar registros
     def update_data(self, nombre_tabla, row_values, condition):
         try:
@@ -91,7 +91,7 @@ class Controls:
                 with connect.cursor() as cursor:
                     cursor.execute(f"UPDATE {nombre_tabla} SET nombre_cliente = %s, email_cliente = %s, tel_cliente = %s WHERE {condition}", row_values)
                     connect.commit()
-                    print(cursor.rowcount, "record(s) affected")
+                    #print(cursor.rowcount, "record(s) affected")
                     return True  # Retorna True si la actualización fue exitosa
             else:
                 print("No se pudo conectar a la base de datos")
@@ -100,7 +100,7 @@ class Controls:
         finally:
             if connect.is_connected():
                 connect.close()
-                print("Conexión a MySQL cerrada")
+                #print("Conexión a MySQL cerrada")
     def check_disponibilidad(self, check_values):
         try: 
             connect = conexion.conexionDB()
@@ -139,7 +139,28 @@ class Controls:
             if connect.is_connected():
                 cursor.close()
                 connect.close()
-                print("Conexión a MySQL cerrada")
+                #print("Conexión a MySQL cerrada")
+
+    def get_citas(self):
+        try: 
+            connect = conexion.conexionDB()
+            if connect.is_connected():
+                cursor = connect.cursor(buffered=True)
+                with connect.cursor() as cursor:
+                    cursor.execute(f"SELECT * FROM citas") #SE trae todo de la tabla de citas
+                    result = cursor.fetchall()  # Fetch all rows
+                    #Convertir los datos en un formato manejable
+                    columns = [column[0] for column in cursor.description]
+                    rows = [dict(zip(columns, row)) for row in result]
+                    #print(rows)
+                    return rows
+        except mysql.connector.Error as e:
+            print("No se pudo conectar", e)
+        finally:
+            if connect.is_connected():
+                cursor.close()
+                connect.close()
+                #print("MySQL connection is closed")
 
 
     
