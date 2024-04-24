@@ -23,7 +23,7 @@ class Controls:
                 sql_check = "SELECT * FROM clientes WHERE nombre_cliente = %s AND tel_cliente = %s AND email_cliente = %s"
                 cursor.execute(sql_check, row_values)
                 if cursor.fetchone() is not None:
-                    print("El registro ya existe.")
+                    #print("El registro ya existe.")
                     return False  # Devolver False si el registro ya existe
                 else:
                     # Preparar la consulta SQL para insertar el registro
@@ -31,7 +31,7 @@ class Controls:
                     cursor.execute(sql_insert, row_values)
                     if cursor.rowcount > 0:
                         connect.commit()  # Confirmar la transacción
-                        print(cursor.rowcount, "record inserted.")
+                        #print(cursor.rowcount, "record inserted.")
                         return True  # Devolver True si los datos se insertaron correctamente
         except mysql.connector.Error as e:
             print("No se pudo conectar", e)
@@ -127,11 +127,11 @@ class Controls:
             if connect.is_connected():
                 cursor = connect.cursor(buffered=True)
                 #EL HORARIO ESTA DISPONIBLE ENTONCES SE INSERTAN LOS DATOS
-                sql_insert = "INSERT INTO citas (id_cliente, email_cliente, tipo_cita ,fecha, hora) VALUES (%s, %s, %s, %s, %s)"
+                sql_insert = "INSERT INTO citas (nombre_cliente, email_cliente, tipo_cita ,fecha, hora) VALUES (%s, %s, %s, %s, %s)"
                 cursor.execute(sql_insert, row_values)
                 if cursor.rowcount > 0:
                     connect.commit()  # Confirmar la transacción
-                    print(cursor.rowcount, "record(s) affected, cita agendada.")
+                    #print(cursor.rowcount, "record(s) affected, cita agendada.")
                     return True  # Retorna True si se guardaron los datos
         except mysql.connector.Error as e:
             print("Ocurrio un error al agendar una cita:", e)
@@ -147,7 +147,7 @@ class Controls:
             if connect.is_connected():
                 cursor = connect.cursor(buffered=True)
                 with connect.cursor() as cursor:
-                    cursor.execute(f"SELECT * FROM citas") #SE trae todo de la tabla de citas
+                    cursor.execute(f"SELECT * FROM citas WHERE estado_cita IS NULL ORDER BY fecha ASC") #SE trae todo de la tabla de citas
                     result = cursor.fetchall()  # Fetch all rows
                     #Convertir los datos en un formato manejable
                     columns = [column[0] for column in cursor.description]

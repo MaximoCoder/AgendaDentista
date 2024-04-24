@@ -339,13 +339,13 @@ class DataTable(ft.DataTable):
         self.page.update()
 
     #Funcion para agendar cita
-    def schedule_date(self, id_cliente, email_cliente, procedimiento_field, fechaText, horaPicker ):
+    def schedule_date(self, nombre_cliente, email_cliente, procedimiento_field, fechaText, horaPicker ):
         self.page.dialog.open = False  # Cerramos el modal de editar
         #Primero mandamos solo los datos de fecha y hora para verificar que no esta encimando un horario ocupado
         check_values = (fechaText, horaPicker)
         if control.check_disponibilidad(check_values):
             # Si la fecha y hora están disponibles, mandamos el resto de los datos
-            row_values = (id_cliente, email_cliente, procedimiento_field, fechaText, horaPicker)
+            row_values = (nombre_cliente, email_cliente, procedimiento_field, fechaText, horaPicker)
             if control.agendar_cita(row_values):
                 #print("Cita agendada con éxito.")
                 # Muestra una SnackBar si la consulta es exitosa
@@ -385,7 +385,7 @@ class DataTable(ft.DataTable):
     def show_schedule_dialog(self, e):
         #self.page.go("/agenda")
         #Traer los datos de esa row.
-        id_cliente = e.control.data['id_cliente']
+        nombre_cliente = e.control.data['nombre_cliente']
         email_cliente = e.control.data['email_cliente']
         #Create the inputs
             # Cuerpo del formulario
@@ -495,7 +495,7 @@ class DataTable(ft.DataTable):
             width=300
             ),
             actions=[
-                ft.TextButton("Agendar", on_click=lambda e:self.schedule_date(id_cliente, email_cliente, procedimiento_field.value, fechaText.value, horaPicker.value)),
+                ft.TextButton("Agendar", on_click=lambda e:self.schedule_date(nombre_cliente, email_cliente, procedimiento_field.value, fechaText.value, horaPicker.value)),
                 ft.TextButton("Cancelar", on_click=self.close_dlg), #Reutilizamos la funcion para cerrar modales.
             ],
             actions_alignment=ft.MainAxisAlignment.END,
@@ -608,8 +608,10 @@ class DateBox(ft.Container):
     def __init__(
         self,
         day: int,
+        month: int,
+        year: int,
         date: str = None,
-        date_instnace: ft.Column = None,
+        date_instance: ft.Column = None,
         task_instance: ft.Column = None,
         opacity_: float | int = None,
     ):
@@ -622,40 +624,34 @@ class DateBox(ft.Container):
         )
 
         self.day = day
-        self.date_instance = date_instnace
+        self.month = month
+        self.year = year
+        self.date_instance = date_instance
         self.task_instance = task_instance
 
         self.content = ft.Text(self.day, text_align="center")
 
     def selected(self, e: ft.TapEvent):
-        # becuase each BoxDay has the !grid instance, we can loop over the rows and check to see which day is being clicked and update the UI...
+          # because each BoxDay has the !grid instance, we can loop over the rows and check to see which day is being clicked and update the UI...
         if self.date_instance:  # to bypass any errors
-            # [1:] becuase we skip over the weekday row
+            # [1:] because we skip over the weekday row
             for row in self.date_instance.controls[1:]:
                 for date in row.controls:
                     date.bgcolor = "#76ABAE" if date == e.control else None
                     date.border = (
                         ft.border.all(0.5, "#76ABAE") if date == e.control else None
                     )
-                    # we can add one more line of code to display the clicked date into the text field
-
-                    if date == e.control:
-                        # recall that we passed in a formatted date, under the method called !format_date
-                        self.task_instance.date.value = e.control.data
-
-            self.date_instance.update()
-            self.task_instance.update()
-
+                    
 
 # Calendar class that sets up UI for year/month/day...
 class DateGrid(ft.Column):
     # data grid takes in !year and !month as well as the task manager instance
-    def __init__(self, year: int, month: int):
+    def __init__(self, year: int, month: int, task_instance: ft.Column):
         super(DateGrid, self).__init__()
 
         self.year = year
         self.month = month
-        #self.task_manager = task_instance
+        self.task_manager = task_instance
 
         self.date = ft.Text(f"{month_class[self.month]} {self.year}")
 
@@ -685,7 +681,7 @@ class DateGrid(ft.Column):
         week_days = ft.Row(
             alignment="spaceEvenly",
             controls=[
-                DateBox(day=date_class[index], opacity_=0.7) for index in range(7)
+                DateBox(day=date_class[index], month=self.month, year=self.year, opacity_=0.7) for index in range(7)
             ],
         )
 
@@ -705,7 +701,7 @@ class DateGrid(ft.Column):
             row = ft.Row(alignment="spaceEvenly")
             for day in week:
                 if day != 0:
-                    date_box = DateBox(day, self.format_date(day), self)
+                    date_box = DateBox(day, self.month, self.year, self.format_date(day), self)
 
                     # Si el día es hoy, cambia el color de fondo y el borde
                     if day == today and month == datetime.now().month and year == datetime.now().year:
@@ -719,9 +715,14 @@ class DateGrid(ft.Column):
                             date_box.bgcolor = "#97FEED"
                             date_box.border = ft.border.all(0.5, "#97FEED")
 
+                    #Si el día actual coincide con un día que hay cita, cambia el color de fondo y el borde
+                    if day == today and any(date(year, month, day) == cita['fecha'] for cita in citas):
+                        date_box.bgcolor = "#FF204E"
+                        date_box.border = ft.border.all(0.5, "#FF204E")
+
                     row.controls.append(date_box)
                 else:
-                    row.controls.append(DateBox(" "))
+                    row.controls.append(DateBox(" ", self.month, self.year, "", self))
 
             self.controls.append(row)
 
@@ -753,55 +754,73 @@ class DateGrid(ft.Column):
     def format_date(self, day: int):
         return f"{month_class[self.month]} {day}, {self.year}"
 
-
-# some stylign for the inputs we will use ...
-def input_style(height: int):
-    return {
-        "height": height,
-        "focused_border_color": "blue",
-        "border_radius": 5,
-        "cursor_height": 16,
-        "cursor_color": "white",
-        "content_padding": 10,
-        "border_width": 1.5,
-        "text_size": 12,
-    }
-
-
-# Task manager class to handle tasks (if app is a to-do app)
+# Task manager class to show all the appointments
 class TaskManager(ft.Column):
     def __init__(self):
         super(TaskManager, self).__init__()
-
-        self.date = ft.TextField(
-            label="Date", read_only=True, value=" ", **input_style(38)
+        self.citas_Title = ft.Text(
+            "Citas Pendientes(En orden cronológico)", weight=ft.FontWeight.BOLD
+        )   
+        # Fetch the appointments from the database
+        citas = control.get_citas()
+        # Create a list to hold the controls for each appointment
+        cita_controls = []
+        # Loop through the appointments and create a control for each one
+        for cita in citas:
+            # Calculate how many days are left until the appointment
+            cita_date = cita['fecha']  # cita['fecha'] is already a datetime.date object
+            days_left = (cita_date - datetime.now().date()).days
+            cita_controls.append(
+                ft.Container(
+                    content=ft.Column(controls=[
+                        ft.Row(controls=[
+                            ft.Text(f"#{cita['id_cita']}", color="black", size=16, weight=ft.FontWeight.BOLD),
+                            ft.Text(f"{cita['nombre_cliente']}", color="black", size=16, weight=ft.FontWeight.BOLD),
+                            ft.Text(f"Procedimiento:{cita['tipo_cita']}", color="black", size=16, weight=ft.FontWeight.BOLD),
+                        ]),
+                        ft.Row(controls=[
+                            ft.Text(f"Fecha:{cita['fecha']}", color="black", size=16, weight=ft.FontWeight.BOLD),
+                            ft.Text(f"Hora:{cita['hora']} ({days_left} días restantes)", color="black", size=16, weight=ft.FontWeight.BOLD),
+                        ])
+                    ]),
+                    width=500,
+                    height=85,
+                    border=ft.border.all(1, "#ebebeb"),
+                    border_radius=ft.border_radius.all(8),
+                    alignment=ft.alignment.center,
+                    bgcolor="#ebebeb",
+                    padding=5
+                )
+            )
+        
+        #Contenedor de citas
+        self.contenedor = ft.Container(
+            content = ft.Column(controls=cita_controls, scroll="auto"),
+            width=500,
+            height=300, 
+            border=ft.border.all(1, "#ebebeb"),
+            border_radius=ft.border_radius.all(8),
+            alignment=ft.alignment.center,
+            padding=5
         )
 
-        self.controls = [self.date]
+        self.controls = [self.citas_Title, self.contenedor] 
 #Apartado de agenda
 class Agenda(Column):
     def __init__(self):
         super().__init__()
-       
+        task_manager = TaskManager()
         self.date_grid = DateGrid(
-            year=Settings.get_year(), month=Settings.get_month()
+            year=Settings.get_year(), month=Settings.get_month(), task_instance=task_manager
         )
         # Crear el título
-        title = ft.Text("Aqui puedes observar las citas pendientes, Haz click sobre un dia marcado para ver las citas de ese dia.", size=16, text_align="center")
-        #self.controls.append(title)
+        title = ft.Text("Aqui puedes Observar las citas agendadas y las citas pendientes.", size=16, text_align="center", weight=ft.FontWeight.BOLD)
         
-        # Crear los rectángulos a la izquierda
-        rectangles = ft.Column()
-        for _ in range(5):  # Cambia esto por el número de rectángulos que quieras
-            rectangles.controls.append(ft.Container(width=200, height=300, bgcolor="lightgrey"))
-        
-        # Crear la fila con los rectángulos y el calendario
-        row = ft.Row(controls=[self.date_grid], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
+        # Crear la fila con los datos de las citas y el calendario
+        row = ft.Row(controls=[self.date_grid, task_manager], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
         content = ft.Column(controls=[title, row])
         self.controls.append(content)
     
-
-
 class formularioClientes(Column):
     def __init__(self):
         super().__init__()
@@ -837,7 +856,7 @@ class formularioClientes(Column):
             ],
         )
     def main(self, page):
-        page.title = "Registro"         
+        page.title = "SISTEMA MBCMPRUASN"         
         self.header = Header(page, dt=self.table)
         self.form = formClient(page, dt=self.table)   
 
