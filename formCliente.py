@@ -339,13 +339,13 @@ class DataTable(ft.DataTable):
         self.page.update()
 
     #Funcion para agendar cita
-    def schedule_date(self, nombre_cliente, email_cliente, procedimiento_field, fechaText, horaPicker ):
+    def schedule_date(self, nombre_cliente, email_cliente, procedimiento_field, costo_field ,fechaText, horaPicker ):
         self.page.dialog.open = False  # Cerramos el modal de editar
         #Primero mandamos solo los datos de fecha y hora para verificar que no esta encimando un horario ocupado
         check_values = (fechaText, horaPicker)
         if control.check_disponibilidad(check_values):
             # Si la fecha y hora están disponibles, mandamos el resto de los datos
-            row_values = (nombre_cliente, email_cliente, procedimiento_field, fechaText, horaPicker)
+            row_values = (nombre_cliente, email_cliente, procedimiento_field, costo_field, fechaText, horaPicker)
             if control.agendar_cita(row_values):
                 #print("Cita agendada con éxito.")
                 # Muestra una SnackBar si la consulta es exitosa
@@ -392,7 +392,16 @@ class DataTable(ft.DataTable):
         procedimiento_field = ft.TextField(label="Procedimiento a realizar:",width=300, height=100, color="black")
         procedimiento = ft.Container(
             content=procedimiento_field,
-            alignment=ft.alignment.center
+            alignment=ft.alignment.center,
+            padding=0,
+            margin=0 
+        )
+        costo_field = ft.TextField(label="Costo:",width=300, height=100, color="black")
+        costo = ft.Container(
+            content=costo_field,
+            alignment=ft.alignment.center,
+            padding=0,
+            margin=0        
         )
 
         #DATEPICKER
@@ -487,15 +496,16 @@ class DataTable(ft.DataTable):
             title=ft.Text("Agendar Cita"),
             content=Column([
                 procedimiento,
+                costo,
                 fecha,
                 hora,
                 
             ],
-            height=300,
+            height=350,
             width=300
             ),
             actions=[
-                ft.TextButton("Agendar", on_click=lambda e:self.schedule_date(nombre_cliente, email_cliente, procedimiento_field.value, fechaText.value, horaPicker.value)),
+                ft.TextButton("Agendar", on_click=lambda e:self.schedule_date(nombre_cliente, email_cliente, procedimiento_field.value, costo_field.value, fechaText.value, horaPicker.value)),
                 ft.TextButton("Cancelar", on_click=self.close_dlg), #Reutilizamos la funcion para cerrar modales.
             ],
             actions_alignment=ft.MainAxisAlignment.END,
@@ -763,48 +773,54 @@ class TaskManager(ft.Column):
         )   
         # Fetch the appointments from the database
         citas = control.get_citas()
-        # Create a list to hold the controls for each appointment
-        cita_controls = []
-        # Loop through the appointments and create a control for each one
-        for cita in citas:
-            # Calculate how many days are left until the appointment
-            cita_date = cita['fecha']  # cita['fecha'] is already a datetime.date object
-            days_left = (cita_date - datetime.now().date()).days
-            cita_controls.append(
-                ft.Container(
-                    content=ft.Column(controls=[
-                        ft.Row(controls=[
-                            ft.Text(f"#{cita['id_cita']}", color="black", size=16, weight=ft.FontWeight.BOLD),
-                            ft.Text(f"{cita['nombre_cliente']}", color="black", size=16, weight=ft.FontWeight.BOLD),
-                            ft.Text(f"Procedimiento:{cita['tipo_cita']}", color="black", size=16, weight=ft.FontWeight.BOLD),
+        #Validamos si hay o no citas pendientes
+        if not citas:
+            self.citas_message = ft.Text("No hay Citas pendientes", size=16, text_align="center")
+            self.controls = [self.citas_Title, self.citas_message]
+        else:
+            # Create a list to hold the controls for each appointment
+            cita_controls = []
+            # Loop through the appointments and create a control for each one
+            for cita in citas:
+                # Calculate how many days are left until the appointment
+                cita_date = cita['fecha']  # cita['fecha'] is already a datetime.date object
+                days_left = (cita_date - datetime.now().date()).days
+                cita_controls.append(
+                    ft.Container(
+                        content=ft.Column(controls=[
+                            ft.Row(controls=[
+                                ft.Text(f"#{cita['id_cita']}", color="black", size=16, weight=ft.FontWeight.BOLD),
+                                ft.Text(f"{cita['nombre_cliente']}", color="black", size=16, weight=ft.FontWeight.BOLD),
+                                ft.Text(f"Procedimiento:{cita['tipo_cita']}", color="black", size=16, weight=ft.FontWeight.BOLD),
+                                ft.Text(f"Costo:{cita['costo_cita']}", color="black", size=16, weight=ft.FontWeight.BOLD),
+                            ]),
+                            ft.Row(controls=[
+                                ft.Text(f"Fecha:{cita['fecha']}", color="black", size=16, weight=ft.FontWeight.BOLD),
+                                ft.Text(f"Hora:{cita['hora']} ({days_left} días restantes)", color="black", size=16, weight=ft.FontWeight.BOLD),
+                            ])
                         ]),
-                        ft.Row(controls=[
-                            ft.Text(f"Fecha:{cita['fecha']}", color="black", size=16, weight=ft.FontWeight.BOLD),
-                            ft.Text(f"Hora:{cita['hora']} ({days_left} días restantes)", color="black", size=16, weight=ft.FontWeight.BOLD),
-                        ])
-                    ]),
-                    width=500,
-                    height=85,
-                    border=ft.border.all(1, "#ebebeb"),
-                    border_radius=ft.border_radius.all(8),
-                    alignment=ft.alignment.center,
-                    bgcolor="#ebebeb",
-                    padding=5
+                        width=500,
+                        height=85,
+                        border=ft.border.all(1, "#ebebeb"),
+                        border_radius=ft.border_radius.all(8),
+                        alignment=ft.alignment.center,
+                        bgcolor="#ebebeb",
+                        padding=5
+                    )
                 )
+            
+            #Contenedor de citas
+            self.contenedor = ft.Container(
+                content = ft.Column(controls=cita_controls, scroll="auto"),
+                width=500,
+                height=300, 
+                border=ft.border.all(1, "#ebebeb"),
+                border_radius=ft.border_radius.all(8),
+                alignment=ft.alignment.center,
+                padding=5
             )
-        
-        #Contenedor de citas
-        self.contenedor = ft.Container(
-            content = ft.Column(controls=cita_controls, scroll="auto"),
-            width=500,
-            height=300, 
-            border=ft.border.all(1, "#ebebeb"),
-            border_radius=ft.border_radius.all(8),
-            alignment=ft.alignment.center,
-            padding=5
-        )
 
-        self.controls = [self.citas_Title, self.contenedor] 
+            self.controls = [self.citas_Title, self.contenedor] 
 #Apartado de agenda
 class Agenda(Column):
     def __init__(self):
@@ -850,6 +866,28 @@ class formularioClientes(Column):
                         expand=True,
                         controls=[
                             ft.Row(controls=[agenda]),
+                        ],
+                    ),        
+                ), 
+                ft.Tab(
+                    text="Historial",
+                    icon=ft.icons.HISTORY_ROUNDED,
+                    content=ft.Column(
+                        scroll="auto",
+                        expand=True,
+                        controls=[
+                            ft.Row(controls=[]),
+                        ],
+                    ),        
+                ), 
+                ft.Tab(
+                    text="Estadisticas",
+                    icon=ft.icons.BAR_CHART_ROUNDED,
+                    content=ft.Column(
+                        scroll="auto",
+                        expand=True,
+                        controls=[
+                            ft.Row(controls=[]),
                         ],
                     ),        
                 ), 

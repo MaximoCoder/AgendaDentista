@@ -127,7 +127,7 @@ class Controls:
             if connect.is_connected():
                 cursor = connect.cursor(buffered=True)
                 #EL HORARIO ESTA DISPONIBLE ENTONCES SE INSERTAN LOS DATOS
-                sql_insert = "INSERT INTO citas (nombre_cliente, email_cliente, tipo_cita ,fecha, hora) VALUES (%s, %s, %s, %s, %s)"
+                sql_insert = "INSERT INTO citas (nombre_cliente, email_cliente, tipo_cita ,costo_cita ,fecha, hora) VALUES (%s, %s, %s, %s, %s, %s)"
                 cursor.execute(sql_insert, row_values)
                 if cursor.rowcount > 0:
                     connect.commit()  # Confirmar la transacción
@@ -147,7 +147,7 @@ class Controls:
             if connect.is_connected():
                 cursor = connect.cursor(buffered=True)
                 with connect.cursor() as cursor:
-                    cursor.execute(f"SELECT * FROM citas WHERE estado_cita IS NULL ORDER BY fecha ASC") #SE trae todo de la tabla de citas
+                    cursor.execute(f"SELECT * FROM citas WHERE estado_cita IS NULL AND fecha >= CURDATE() ORDER BY fecha ASC") #SE trae todo de la tabla de citas
                     result = cursor.fetchall()  # Fetch all rows
                     #Convertir los datos en un formato manejable
                     columns = [column[0] for column in cursor.description]

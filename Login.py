@@ -7,8 +7,7 @@ from Clases.conexionDB import *
 from Clases.usuario import *
 class UserLogin(Column):
     def _init_(self):
-        super()._init_()
-    #lO QUE HICE FUE AÑADIR EL PARAMETRO PAGE PARA QUE LO RECONOCIERA Y LUEGO PASARSELO 
+        super()._init_() 
     def login_form(self, page):
         # Encabezado del formulario
         title_text = ft.Container(
