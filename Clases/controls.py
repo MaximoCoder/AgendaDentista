@@ -101,13 +101,18 @@ class Controls:
             if connect.is_connected():
                 connect.close()
                 #print("Conexión a MySQL cerrada")
-    def check_disponibilidad(self, check_values):
+    def check_disponibilidad(self, check_values, id_cita=None):
         try: 
             connect = conexion.conexionDB()
             if connect.is_connected():
                 cursor = connect.cursor(buffered=True)
                 with connect.cursor() as cursor:
-                    cursor.execute(f"SELECT * FROM citas WHERE fecha = %s AND hora = %s", check_values)
+                    if id_cita:
+                        # Si se proporciona un id_cita, excluye esa cita de la verificación
+                        cursor.execute(f"SELECT * FROM citas WHERE fecha = %s AND hora = %s AND id_cita != %s", (*check_values, id_cita))
+                    else:
+                        cursor.execute(f"SELECT * FROM citas WHERE fecha = %s AND hora = %s", check_values)
+                    
                     result = cursor.fetchall()  # Fetch all rows
                     if result:
                         return False  # Retorna False si la cita ya existe
@@ -162,5 +167,35 @@ class Controls:
                 connect.close()
                 #print("MySQL connection is closed")
 
+    def cancelar_cita(self, nombre_tabla, condition):
+        try:
+            connect = conexion.conexionDB()
+            if connect.is_connected():
+                with connect.cursor() as cursor:
+                    cursor.execute(f"DELETE FROM {nombre_tabla} WHERE {condition}")
+                    connect.commit()
+                    #print(cursor.rowcount, "record(s) affected")
+                    return True  # Retorna True si la actualización fue exitosa
+            else:
+                print("No se pudo conectar a la base de datos")
+        except mysql.connector.Error as e:
+            print("Ocurrio un error al cancelar la cita:", e)
+    def reagendar_cita(self, condition, row_values):
+        try: 
+            connect = conexion.conexionDB()
+            if connect.is_connected():
+                cursor = connect.cursor(buffered=True)
+                with connect.cursor() as cursor:
+                    cursor.execute(f"UPDATE citas SET tipo_cita = %s, costo_cita = %s, fecha = %s, hora = %s WHERE {condition}", row_values)
+                    connect.commit()
+                    #print(cursor.rowcount, "record(s) affected")
+                    return True  # Retorna True si la actualización fue exitosa
+        except mysql.connector.Error as e:
+            print("Ocurrio un error al reagendar la cita:", e)
+        finally:
+            if connect.is_connected():
+                cursor.close()
+                connect.close()
+                #print("Conexión a MySQL cerrada")
 
     

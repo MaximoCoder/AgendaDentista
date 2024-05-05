@@ -528,7 +528,7 @@ class DataTable(ft.DataTable):
                     ft.DataCell(ft.Row([
                         ft.IconButton("edit_calendar_rounded", data=row, icon_color="black", tooltip="Agendar", on_click=self.show_schedule_dialog),
                         ft.IconButton("edit", data=row, icon_color="blue", tooltip="Editar", on_click=self.show_update_dialog),
-                        ft.IconButton("delete",data=row, icon_color="red", tooltip="Eliminar", on_click=self.show_delete_dialog),  # Añade un manejador de eventos de clic),
+                        ft.IconButton("delete",data=row, icon_color="red", tooltip="Eliminar", on_click=self.show_delete_dialog), 
                     ])),
                 ]
             ) 
@@ -751,7 +751,6 @@ class DateGrid(ft.Column):
             Settings.get_year(),
             Settings.get_month(),
         )
-
         self.page.update()
 
     # Another helper method to insert the changes post-event trigger
@@ -768,20 +767,243 @@ class DateGrid(ft.Column):
 class TaskManager(ft.Column):
     def __init__(self):
         super(TaskManager, self).__init__()
+        # Fetch the appointments from the database
+        self.citas = control.get_citas()
+    #FUNCIONES DE LOS BOTONES DE AGENDA
+    def delete_data(self, id_cita):
+        self.page.dialog.open = False  # Cerramos el modal de eliminar
+        #VALIDAMOS SI SE ELIMINA CORRECTAMENTE O NO.
+
+        if control.cancelar_cita('citas', f"id_cita = {id_cita}"):
+            self.update_citas()
+            # Muestra una SnackBar si la consulta es exitosa
+            self.page.snack_bar = ft.SnackBar(
+                content=ft.Text("¡La cita ha sido cancelada!", color="white", weight="bold"),
+                action="Okey!",
+                bgcolor="green",
+                action_color="white",
+                duration=3000)
+            self.page.snack_bar.open = True
+            self.page.update()  
+        else:
+            self.page.snack_bar = ft.SnackBar(
+                content=ft.Text("¡No se pudo cancelar la cita!", color="white", weight="bold"),
+                action="Okey!",
+                bgcolor="red",
+                action_color="white",
+                duration=3000)
+            self.page.snack_bar.open = True
+            self.page.update()
+    #Funcion para abrir modal para eliminar un registro
+    def close_dlg(self, e):
+        self.page.dialog.open = False
+        self.page.update()
+    #MODAL DE ELIMINAR
+    def show_delete_dialog (self, e):
+        #print("El id de la cita es  = ",e.control.data['id_cita'])
+        id_cita = e.control.data['id_cita']
+        #MODAL PARA ELIMINAR UN REGISTRO
+        dlg = ft.AlertDialog(
+            title=ft.Text("¿Estas seguro de que deseas cancelar esta cita?"),
+            content=ft.Text("Esta accion no se puede deshacer"),
+            actions=[
+                ft.TextButton("Si, Estoy seguro", on_click=lambda e: self.delete_data(id_cita)),
+                ft.TextButton("Cancelar", on_click=self.close_dlg),
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+        self.page.dialog = dlg
+        dlg.open = True
+        self.page.update()
+    def RE_schedule_date(self,  id_cita , procedimiento_field, costo_field, fechaText, horaPicker):
+        self.page.dialog.open = False  # Cerramos el modal de editar
+        #Primero mandamos solo los datos de fecha y hora para verificar que no esta encimando un horario ocupado
+        check_values = (fechaText, horaPicker)
+        if control.check_disponibilidad(check_values, id_cita):
+            # Si la fecha y hora están disponibles, mandamos el resto de los datos
+            row_values = (procedimiento_field, costo_field, fechaText, horaPicker)
+            if control.reagendar_cita(f'id_cita = {id_cita}', row_values):
+                self.update_citas()
+                #print("Cita agendada con éxito.")
+                # Muestra una SnackBar si la consulta es exitosa
+                self.page.snack_bar = ft.SnackBar(
+                    content=ft.Text("¡Se reagendo correctamente la cita!", color="white", weight="bold"),
+                    action="Okey!",
+                    bgcolor="green",
+                    action_color="white",
+                    duration=3000)
+                self.page.snack_bar.open = True
+                self.page.update()
+            else:
+                #print("No se pudo agendar la cita.")
+                # Muestra una SnackBar si la consulta fallo
+                self.page.snack_bar = ft.SnackBar(
+                    content=ft.Text("¡Lo sentimos algo salio mal, vuelve a intentarlo!", color="white", weight="bold"),
+                    action="Okey!",
+                    bgcolor="red",
+                    action_color="white",
+                    duration=3000)
+                self.page.snack_bar.open = True
+                self.page.update()
+        else:
+            #print("La fecha y hora ya están ocupadas.")
+            # Muestra una SnackBar si la consulta fallo
+            self.page.snack_bar = ft.SnackBar(
+                content=ft.Text("¡El horario que seleccionaste ya esta ocupado, por favor selecciona otra hora.!", color="white", weight="bold"),
+                action="Okey!",
+                bgcolor="red",
+                action_color="white",
+                duration=3000)
+            self.page.snack_bar.open = True
+            self.page.update()
+
+    def update_a_date_dlg(self, e):
+        id_cita = e.control.data['id_cita']
+        #Create the inputs
+            # Cuerpo del formulario
+        procedimiento_field = ft.TextField(label="Procedimiento a realizar:",width=300, height=100, color="black")
+        procedimiento = ft.Container(
+            content=procedimiento_field,
+            alignment=ft.alignment.center,
+            padding=0,
+            margin=0 
+        )
+        costo_field = ft.TextField(label="Costo:",width=300, height=100, color="black")
+        costo = ft.Container(
+            content=costo_field,
+            alignment=ft.alignment.center,
+            padding=0,
+            margin=0        
+        )
+
+        #DATEPICKER
+
+        # Calculate the current date
+        current_date = datetime.now()
+
+        # Calculate the last date as the current date plus 3 months
+        last_date = current_date + timedelta(days=90)
+        #TEXTO PARA MOSTRAR LA FECHA QUE SELECCIONA EL USUARIO
+        fechaText = ft.Text(weight=ft.FontWeight.BOLD, size=20, color="black")  
+
+        def change_date(e):
+            fechaText.value = f"{fechaPicker.value.date()}"
+            e.control.page.update()
+
+        fechaPicker = ft.DatePicker(
+            first_date=current_date,
+            last_date=last_date,
+            on_change=change_date,
+        )
+        self.page.overlay.append(fechaPicker)
+
+        fecha_button = ft.ElevatedButton(
+            "Selecciona la fecha:",
+            icon=ft.icons.CALENDAR_MONTH,
+            on_click=lambda _: fechaPicker.pick_date(),
+            style=ft.ButtonStyle(
+                shape=ft.RoundedRectangleBorder(radius=10),
+            ),
+            height=50,
+            width=200
+        )
+
+        stackFecha = ft.Stack(
+            [   
+                ft.Row(
+                    [fecha_button, fechaText],
+                    alignment=ft.MainAxisAlignment.CENTER,
+                )
+            ])
+
+        fecha = ft.Container(
+            content=stackFecha,
+            alignment=ft.alignment.center,
+        )
+        #TIME PICKER
+        timeText = ft.Text(weight=ft.FontWeight.BOLD, size=20, color="black")  
+        def change_time(e):
+            timeText.value = f"{horaPicker.value}"
+            e.control.page.update()
+
+        horaPicker = ft.TimePicker(
+            confirm_text="Confirmar",
+            error_invalid_text="El tiempo esta fuera de rango",
+            help_text="Seleciona un tiempo",
+            on_change=change_time,
+        )
+        self.page.overlay.append(horaPicker)
+        time_button = ft.ElevatedButton(
+            "Selecciona la hora:",
+            icon=ft.icons.ACCESS_TIME_FILLED,
+            on_click=lambda _: horaPicker.pick_time(),
+            style=ft.ButtonStyle(
+                shape=ft.RoundedRectangleBorder(radius=10),
+            ),
+            height=50,
+            width=200
+        )
+
+        
+        stackTime = ft.Stack(
+            [   
+                ft.Row(
+                    [time_button, timeText],
+                    alignment=ft.MainAxisAlignment.CENTER,
+                )
+            ])
+        
+        hora = ft.Container(
+            content=stackTime,
+            alignment=ft.alignment.center
+        )
+        #TIME PICKER
+        
+        time_button = ft.TextField(
+            label="seleccionar hora",
+            icon=ft.icons.ACCESS_TIME,
+        )
+        #Create the dialog
+        dlg = ft.AlertDialog(
+            title=ft.Text("Reagendar Cita"),
+            content=Column([
+                procedimiento,
+                costo,
+                fecha,
+                hora,
+                
+            ],
+            height=350,
+            width=300
+            ),
+            actions=[
+                ft.TextButton("Actualizar", on_click=lambda e:self.RE_schedule_date(id_cita,  procedimiento_field.value, costo_field.value, fechaText.value, horaPicker.value)),
+                ft.TextButton("Cancelar", on_click=self.close_dlg), #Reutilizamos la funcion para cerrar modales.
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+        #Traemos los datos de la cita para no tener que seleccionar en caso de solo querer modificar 1 campo.
+        procedimiento_field.value = e.control.data['tipo_cita']
+        costo_field.value = e.control.data['costo_cita']
+        fechaText.value = e.control.data['fecha']
+        horaPicker.value = e.control.data['hora']
+        #Abrir el modal
+        self.page.dialog = dlg
+        dlg.open = True
+        self.page.update()
+    def main(self):
         self.citas_Title = ft.Text(
             "Citas Pendientes(En orden cronológico)", weight=ft.FontWeight.BOLD
         )   
-        # Fetch the appointments from the database
-        citas = control.get_citas()
         #Validamos si hay o no citas pendientes
-        if not citas:
+        if not self.citas:
             self.citas_message = ft.Text("No hay Citas pendientes", size=16, text_align="center")
             self.controls = [self.citas_Title, self.citas_message]
         else:
             # Create a list to hold the controls for each appointment
             cita_controls = []
             # Loop through the appointments and create a control for each one
-            for cita in citas:
+            for cita in self.citas:
                 # Calculate how many days are left until the appointment
                 cita_date = cita['fecha']  # cita['fecha'] is already a datetime.date object
                 days_left = (cita_date - datetime.now().date()).days
@@ -791,16 +1013,22 @@ class TaskManager(ft.Column):
                             ft.Row(controls=[
                                 ft.Text(f"#{cita['id_cita']}", color="black", size=16, weight=ft.FontWeight.BOLD),
                                 ft.Text(f"{cita['nombre_cliente']}", color="black", size=16, weight=ft.FontWeight.BOLD),
-                                ft.Text(f"Procedimiento:{cita['tipo_cita']}", color="black", size=16, weight=ft.FontWeight.BOLD),
-                                ft.Text(f"Costo:{cita['costo_cita']}", color="black", size=16, weight=ft.FontWeight.BOLD),
                             ]),
                             ft.Row(controls=[
                                 ft.Text(f"Fecha:{cita['fecha']}", color="black", size=16, weight=ft.FontWeight.BOLD),
                                 ft.Text(f"Hora:{cita['hora']} ({days_left} días restantes)", color="black", size=16, weight=ft.FontWeight.BOLD),
+                            ]),
+                            ft.Row(controls=[
+                                ft.Text(f"Procedimiento:{cita['tipo_cita']}", color="black", size=16, weight=ft.FontWeight.BOLD),
+                                ft.Text(f"Costo:{cita['costo_cita']}", color="black", size=16, weight=ft.FontWeight.BOLD)
+                            ]),
+                            ft.Row(controls=[
+                                ft.IconButton("edit", data=cita,icon_color="green", tooltip="Reagendar", on_click=self.update_a_date_dlg),
+                                ft.IconButton("delete",data=cita, icon_color="red", tooltip="Cancelar", on_click=self.show_delete_dialog)
                             ])
                         ]),
-                        width=500,
-                        height=85,
+                        width=600,
+                        height=150,
                         border=ft.border.all(1, "#ebebeb"),
                         border_radius=ft.border_radius.all(8),
                         alignment=ft.alignment.center,
@@ -821,27 +1049,35 @@ class TaskManager(ft.Column):
             )
 
             self.controls = [self.citas_Title, self.contenedor] 
+    def update_citas(self):
+        # Fetch the appointments from the database
+        self.citas = control.get_citas()
+        self.main()
+            
 #Apartado de agenda
 class Agenda(Column):
     def __init__(self):
         super().__init__()
-        task_manager = TaskManager()
+        self.task_manager = TaskManager()
+        self.task_manager.main()  # Llama al método main para crear las citas
         self.date_grid = DateGrid(
-            year=Settings.get_year(), month=Settings.get_month(), task_instance=task_manager
+            year=Settings.get_year(), month=Settings.get_month(), task_instance=self.task_manager
         )
         # Crear el título
         title = ft.Text("Aqui puedes Observar las citas agendadas y las citas pendientes.", size=16, text_align="center", weight=ft.FontWeight.BOLD)
         
         # Crear la fila con los datos de las citas y el calendario
-        row = ft.Row(controls=[self.date_grid, task_manager], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
+        row = ft.Row(controls=[self.date_grid, self.task_manager], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
         content = ft.Column(controls=[title, row])
         self.controls.append(content)
-    
+    def refresh(self):
+        self.task_manager.update_citas()  # Actualiza las citas
+        
 class formularioClientes(Column):
     def __init__(self):
         super().__init__()
         # Define las pestañas
-        agenda = Agenda()
+        self.agenda = Agenda()
         self.table = DataTable()  
         self.tabs = Tabs(
             selected_index=0,
@@ -865,7 +1101,7 @@ class formularioClientes(Column):
                         scroll="auto",
                         expand=True,
                         controls=[
-                            ft.Row(controls=[agenda]),
+                            ft.Row(controls=[self.agenda]),
                         ],
                     ),        
                 ), 
@@ -917,6 +1153,8 @@ class formularioClientes(Column):
         self.table.add_data_to_table()
         # Actualizar la tabla con los nuevos datos
         self.table.refresh_data()
+        #Actualizar agenda
+        self.agenda.refresh()
         return column
     #Regresa la vista
     def build(self, page: ft.Page, params=Params, basket=Basket):
