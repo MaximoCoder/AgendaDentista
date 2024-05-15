@@ -1,8 +1,23 @@
 #CONTROLES QUE HACEN CONSULTAS A LA DB
 import flet as ft
+import smtplib
+from pytz import timezone
+import os
+from dotenv import load_dotenv
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from jinja2 import Environment, FileSystemLoader
+from datetime import datetime, timedelta, date
+import locale
+import schedule
+import json
+# Establece la localización en español
+locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
 #CONEXION A DB
 from .conexionDB import *
 class Controls:
+    #Cargar variables de entorno pass y user
+    load_dotenv()
     def obtenerNombresColumnas(self, nombre_tabla):
             connect = conexion.conexionDB() 
             if connect.is_connected():
@@ -124,7 +139,7 @@ class Controls:
             if connect.is_connected():
                 cursor.close()
                 connect.close()
-                print("MySQL connection is closed")
+                #print("MySQL connection is closed")
     def agendar_cita(self , row_values):
         try: 
             #Insertamos los datos luego de verificar que la fecha y hora no esten ocupadas
@@ -167,19 +182,70 @@ class Controls:
                 connect.close()
                 #print("MySQL connection is closed")
 
+    def EnvioCorreos(self, email_cliente, nombre_cliente, fecha_str, hora_str):
+        env = Environment(loader=FileSystemLoader('Clases'))
+        template = env.get_template('CancelacionCorreo.html')
+        html_content = template.render(nombre_cliente=nombre_cliente, fecha_str=fecha_str, hora_str=hora_str)
+        destinatario = email_cliente
+        asunto = "Cancelación de Cita Dental"
+        msg = MIMEMultipart()
+        msg['Subject'] = asunto
+        msg['From'] = os.getenv('USER')
+        msg['To'] = destinatario
+        msg.attach(MIMEText(html_content, 'html'))
+        try:
+            server = smtplib.SMTP('smtp.gmail.com', 587)
+            server.starttls()
+            server.login(os.getenv('USER'), os.getenv('PASS'))
+            server.sendmail(os.getenv('USER'), destinatario, msg.as_string())
+            server.quit()
+            return True
+        except Exception as e:
+            print(e)
+            return False
+
     def cancelar_cita(self, nombre_tabla, condition):
+        # Traer la fecha actual
+        today = datetime.now(timezone('America/Mexico_City')).strftime("%Y-%m-%d")
         try:
             connect = conexion.conexionDB()
             if connect.is_connected():
                 with connect.cursor() as cursor:
-                    cursor.execute(f"DELETE FROM {nombre_tabla} WHERE {condition}")
-                    connect.commit()
-                    #print(cursor.rowcount, "record(s) affected")
-                    return True  # Retorna True si la actualización fue exitosa
+                    # Iniciar una transacción
+                    cursor.execute("START TRANSACTION")
+                    try:
+                        cursor.execute(f"SELECT * FROM {nombre_tabla} WHERE {condition}")
+                        result = cursor.fetchall()
+                        columns = [column[0] for column in cursor.description]
+                        rows = [dict(zip(columns, row)) for row in result]
+                        if rows:
+                            for row in rows:
+                                nombre_cliente = row['nombre_cliente']
+                                email_cliente = row['email_cliente']
+                                fecha = row['fecha']
+                                fecha_str = fecha.strftime("%A, %d de %B de %Y")
+                                hora = row['hora']
+                                today_datetime = datetime.strptime(today, '%Y-%m-%d')
+                                cita_datetime = today_datetime + hora
+                                hora_str = cita_datetime.strftime("%I:%M %p")
+                                if self.EnvioCorreos(email_cliente, nombre_cliente, fecha_str, hora_str):
+                                    cursor.execute(f"DELETE FROM {nombre_tabla} WHERE {condition}")
+                                    connect.commit()
+                                    return True
+                                else:
+                                    cursor.execute("ROLLBACK")
+                        else:
+                            print("No se encontró ninguna cita que coincida con la condición proporcionada")
+                            cursor.execute("ROLLBACK")
+                    except mysql.connector.Error as e:
+                        cursor.execute("ROLLBACK")
+                        print("Ocurrio un error al cancelar la cita:", e)
             else:
                 print("No se pudo conectar a la base de datos")
         except mysql.connector.Error as e:
             print("Ocurrio un error al cancelar la cita:", e)
+
+
     def reagendar_cita(self, condition, row_values):
         try: 
             connect = conexion.conexionDB()
@@ -197,5 +263,21 @@ class Controls:
                 cursor.close()
                 connect.close()
                 #print("Conexión a MySQL cerrada")
-
-    
+    #ESTADISTICAS
+    def getEstadisticas(self):
+        try:
+            connect = conexion.conexionDB()
+            if connect.is_connected():
+                cursor = connect.cursor()
+                cursor.execute(f"SELECT * FROM estadisticas order by fecha_reporte desc limit 1")
+                estadisticas = cursor.fetchall()
+                return estadisticas
+            else:
+                return None
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            return None
+        finally:
+            if connect.is_connected():
+                cursor.close()
+                connect.close()

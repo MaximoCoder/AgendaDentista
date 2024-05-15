@@ -1,12 +1,14 @@
 #CONEXION A DB
 import flet as ft
-from flet import Page, Column,Tab, Tabs
+from flet import Page, Column,Tab, Tabs, Container
 from flet_route import Params, Basket
 from Clases.controls import *
 #Calendario
 import calendar
 from datetime import datetime, timedelta, date
-
+#Schedule
+import schedule
+import time
 
 #INSTANCIA PARA UTILIZAR LOS CONTROLES
 control = Controls()
@@ -239,6 +241,7 @@ class DataTable(ft.DataTable):
     def __init__(self):
         super().__init__(**data_table_style)
         self.data = control.get_data('clientes')
+        self.agenda = Agenda()
     #Funcion para eliminar un registro
     def delete_data(self, id_cliente):
         self.page.dialog.open = False  # Cerramos el modal de eliminar
@@ -347,6 +350,7 @@ class DataTable(ft.DataTable):
             # Si la fecha y hora están disponibles, mandamos el resto de los datos
             row_values = (nombre_cliente, email_cliente, procedimiento_field, costo_field, fechaText, horaPicker)
             if control.agendar_cita(row_values):
+                self.agenda.refresh(self.page)
                 #print("Cita agendada con éxito.")
                 # Muestra una SnackBar si la consulta es exitosa
                 self.page.snack_bar = ft.SnackBar(
@@ -769,11 +773,15 @@ class TaskManager(ft.Column):
         super(TaskManager, self).__init__()
         # Fetch the appointments from the database
         self.citas = control.get_citas()
+    def update_citas(self):
+        # Fetch the appointments from the database
+        self.citas = control.get_citas()
+        # Update the UI...
+        self.main()
     #FUNCIONES DE LOS BOTONES DE AGENDA
     def delete_data(self, id_cita):
         self.page.dialog.open = False  # Cerramos el modal de eliminar
         #VALIDAMOS SI SE ELIMINA CORRECTAMENTE O NO.
-
         if control.cancelar_cita('citas', f"id_cita = {id_cita}"):
             self.update_citas()
             # Muestra una SnackBar si la consulta es exitosa
@@ -992,9 +1000,11 @@ class TaskManager(ft.Column):
         dlg.open = True
         self.page.update()
     def main(self):
+       
         self.citas_Title = ft.Text(
             "Citas Pendientes(En orden cronológico)", weight=ft.FontWeight.BOLD
-        )   
+        )
+    
         #Validamos si hay o no citas pendientes
         if not self.citas:
             self.citas_message = ft.Text("No hay Citas pendientes", size=16, text_align="center")
@@ -1049,10 +1059,7 @@ class TaskManager(ft.Column):
             )
 
             self.controls = [self.citas_Title, self.contenedor] 
-    def update_citas(self):
-        # Fetch the appointments from the database
-        self.citas = control.get_citas()
-        self.main()
+   
             
 #Apartado de agenda
 class Agenda(Column):
@@ -1065,19 +1072,111 @@ class Agenda(Column):
         )
         # Crear el título
         title = ft.Text("Aqui puedes Observar las citas agendadas y las citas pendientes.", size=16, text_align="center", weight=ft.FontWeight.BOLD)
+        self.refresh_button = ft.IconButton(
+            icon=ft.icons.REPLAY,
+            icon_color="black",
+            tooltip="Actualizar Citas",
+            on_click=lambda _: self.refresh(self.page),
+        )
+        self.titleAndRefresh = ft.Row(
+            controls=[
+                title,
+                self.refresh_button,
+            ]
+        )
         
         # Crear la fila con los datos de las citas y el calendario
         row = ft.Row(controls=[self.date_grid, self.task_manager], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
-        content = ft.Column(controls=[title, row])
+        content = ft.Column(controls=[self.titleAndRefresh, row])
         self.controls.append(content)
-    def refresh(self):
+    def refresh(self,page):
         self.task_manager.update_citas()  # Actualiza las citas
+        page.update()
+class Estadisticas(Container): 
+    def __init__(self):
+        super().__init__()
+        #TRAEMOS LAS ESTADISTICAS GENERADAS.
+        self.estadisticas = control.getEstadisticas()
+        #print(self.estadisticas)
+
+        # Estilos
+        normal_title_style = ft.TextStyle(
+            size=12, color=ft.colors.WHITE, weight=ft.FontWeight.BOLD
+        )
+        #TITULO
+        self.title = ft.Text("Estadisticas semanales", size=16, weight=ft.FontWeight.BOLD, color="black")
+        #Fecha del reporte
+        fecha_reporte = self.estadisticas[0][1]  # Obtenemos la fecha del reporte desde la tupla
+        self.date = ft.Text(f"Fecha del reporte: {fecha_reporte}", size=16,text_align="left", color="black")
+        #TOTAL DE CITAS
+        self.citas = ft.Text(f"Total de citas: {self.estadisticas[0][2]}", size=16, color="black")
+
+       # PIE CHART PROCEDIMIENTOS
+        porcentaje_citas = self.estadisticas[0][2]  # Obtenemos el porcentaje de citas desde la tupla
+        porcentaje_procedimientos = 100 - porcentaje_citas  # Calculamos el porcentaje de procedimientos
+        diccionario_procedimientos = json.loads(self.estadisticas[0][4])  # Obtenemos el diccionario de procedimientos
+        procedimientos_sections = []
+        total_procedimientos = sum(diccionario_procedimientos.values())
+        colores = [getattr(ft.colors, f"TEAL_{(i+1)*100}") for i in range(9)]# Obtener la paleta de colores azules
+
+        for i, (procedimiento, cantidad) in enumerate(diccionario_procedimientos.items()):
+            porcentaje = (cantidad / total_procedimientos) * porcentaje_procedimientos
+            color_seccion = colores[i % len(colores)]  # Asignar un color diferente a cada sección
+            procedimientos_sections.append(
+                ft.PieChartSection(
+                    porcentaje,
+                    title=f"{procedimiento} ({round(porcentaje, 2)}%)",
+                    title_style=normal_title_style,
+                    color=color_seccion,
+                    radius=100,
+                )
+            )
+
+        procedimientos = ft.PieChart(
+            sections=procedimientos_sections,
+            sections_space=0,
+            center_space_radius=0,
+            expand=True,
+        )
+
+        # Agrupar el texto "Total de citas" y el gráfico de pie
+        charts = ft.Container(
+            col = 1,
+            content = ft.Row(
+                controls=[
+                    procedimientos,
+                ],
+                alignment=ft.MainAxisAlignment.CENTER,  # Centra los elementos horizontalmente
+                spacing=20,  # Ajusta el espaciado vertical entre los controles
+            )
+        )
         
+        
+        #TOTAL GENERADO
+        total = self.estadisticas[0][3] 
+        self.total = ft.Text(f"Total generado: ${total}", size=16, color="WHITE",  bgcolor=ft.colors.TEAL_700, weight=ft.FontWeight.BOLD)
+        
+        content = ft.Container(
+            col = 10,
+            content=ft.Column(
+                controls=[self.title, self.date, self.citas ,charts,self.total],
+                width=800,
+                height=360,
+                scroll="auto",
+                expand=True,
+                horizontal_alignment="center",
+            ),
+            alignment=ft.alignment.center,
+        )
+        self.content = content
+        
+
 class formularioClientes(Column):
     def __init__(self):
         super().__init__()
         # Define las pestañas
         self.agenda = Agenda()
+        self.estadisticas = Estadisticas()
         self.table = DataTable()  
         self.tabs = Tabs(
             selected_index=0,
@@ -1103,18 +1202,7 @@ class formularioClientes(Column):
                         controls=[
                             ft.Row(controls=[self.agenda]),
                         ],
-                    ),        
-                ), 
-                ft.Tab(
-                    text="Historial",
-                    icon=ft.icons.HISTORY_ROUNDED,
-                    content=ft.Column(
-                        scroll="auto",
-                        expand=True,
-                        controls=[
-                            ft.Row(controls=[]),
-                        ],
-                    ),        
+                    ),
                 ), 
                 ft.Tab(
                     text="Estadisticas",
@@ -1123,7 +1211,7 @@ class formularioClientes(Column):
                         scroll="auto",
                         expand=True,
                         controls=[
-                            ft.Row(controls=[]),
+                            ft.Row(controls=[self.estadisticas]),
                         ],
                     ),        
                 ), 
@@ -1154,7 +1242,7 @@ class formularioClientes(Column):
         # Actualizar la tabla con los nuevos datos
         self.table.refresh_data()
         #Actualizar agenda
-        self.agenda.refresh()
+        self.agenda.refresh(page)
         return column
     #Regresa la vista
     def build(self, page: ft.Page, params=Params, basket=Basket):
